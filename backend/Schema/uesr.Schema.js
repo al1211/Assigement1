@@ -23,7 +23,7 @@ const userRegisterSchema = z.object({
 
   role: z
     .enum(["user", "admin"])
-    .optional()
+    .optional().nullable()
 });
 
 export default userRegisterSchema;

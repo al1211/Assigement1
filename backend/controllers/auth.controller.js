@@ -9,7 +9,10 @@ import jwtsecret from "../config/var.js"
  // Singup User
  const SingupUser=async(req,res)=>{
     try{
-        const {name,email,password}=req.body;
+        console.log(req.body)
+        const {name,email,password,role}=req.body;
+
+
 
         // check if user is exist
 
@@ -26,7 +29,9 @@ import jwtsecret from "../config/var.js"
         await User.create({
             name,
             email,
-            password:hashPassword
+            password:hashPassword,
+            role,
+            
         });
         res.status(201).json({message:"User registered succesfully"});
 
