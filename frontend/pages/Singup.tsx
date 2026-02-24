@@ -41,7 +41,7 @@ export default function Signup() {
         alert(response.data.message);
       }
       setLoading(false);
-      
+      navigate("/login")
     } catch (err: any) {
       console.error(err);
       setError(err?.response?.data?.message || "Something went wrong. Please try again.");

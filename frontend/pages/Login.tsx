@@ -32,7 +32,7 @@ export default function Login() {
     e.preventDefault();
     try {
       setLoading(true);
-      const response = await api.post("/login", formData);
+      const response = await api.post("/v1/auth/login", formData);
       localStorage.setItem("token", response.data.token);
       if (response) {
         alert(response.data.message);

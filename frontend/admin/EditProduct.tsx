@@ -1,420 +1,281 @@
-"use client";
+import React from "react";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
-import { api } from "../api/axios";
-// import { api } from "../api/axios";
+import type  {  ChangeEvent } from "react";
+import { useState } from "react";
 
-// ── Mock data — replace with real API fetch ──────────────────────────────────
-const mockProduct = {
-  _id: "1",
-  title: "Wireless Headphones Pro",
-  description: "Premium noise-cancelling over-ear headphones with 30-hour battery life and multi-device pairing support.",
-  price: 129.99,
-  category: "Electronics",
-  image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
-  stock: 42,
-};
-
-const CATEGORIES = [
-  "Electronics", "Clothing", "Home & Garden",
-  "Sports", "Books", "Toys", "Beauty", "Automotive", "Other",
-];
-
-interface ProductForm {
-  _id:number,
+// Task type
+interface Task {
+  id: string;
   title: string;
-  description: string;
-  price: string;
-  category: string;
-  image: string;
-  stock: number;
+  description?: string;
+  complete: boolean;
 }
 
-const EditProduct = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+// Form errors type
+interface TaskErrors {
+  title?: string;
+  description?: string;
+}
 
-  const [form, setForm] = useState<ProductForm>({
-    _id:0,
-    title: "",
-    description: "",
-    price: "",
-    category: "",
-    image: "",
-    stock: 0,
+// Props type
+interface EditTaskFormProps {
+  task?: Task;
+  onSave?: (updatedTask: Task) => void;
+  onCancel?: () => void;
+}
+
+// Mock existing task (fallback)
+const existingTask: Task = {
+  id: "task-001",
+  title: "Design new landing page",
+  description: "Create a modern and responsive landing page for the product launch campaign.",
+  complete: false,
+};
+
+// Validation function
+function validate(values: Task): TaskErrors {
+  const errors: TaskErrors = {};
+  const title = values.title.trim();
+  const desc = values.description?.trim() || "";
+
+  if (title.length === 0) errors.title = "Title is required";
+  else if (title.length < 3) errors.title = "Title must be at least 3 characters";
+  else if (title.length > 100) errors.title = "Title cannot exceed 100 characters";
+
+  if (desc.length > 500) errors.description = "Description cannot exceed 500 characters";
+
+  return errors;
+}
+
+export default function EditTaskForm({
+  task = existingTask,
+  onSave,
+  onCancel,
+}: EditTaskFormProps) {
+  const [values, setValues] = useState<Task>({
+    title: task.title,
+    description: task.description || "",
+    complete: task.complete,
+    id: task.id,
   });
 
-  const [originalForm, setOriginalForm] = useState<ProductForm | null>(null);
-  const [preview, setPreview] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [fetching, setFetching] = useState<boolean>(true);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [focused, setFocused] = useState<string>("");
-  const [saved, setSaved] = useState<boolean>(false);
+  const [errors, setErrors] = useState<TaskErrors>({});
+  const [touched, setTouched] = useState<{ [K in keyof Task]?: boolean }>({});
+  const [saved, setSaved] = useState(false);
 
-  useEffect(()=>{
-     const fetchProducts=async()=>{
-       try{
-         setFetching(true)
-         const respnse=await api.get("/product/get");
-         const product =  respnse.data.find((p:any)=>p._id===id)
-           setForm(product)
-           setFetching(false);
-      }catch(err){
-          console.error(err);
-      }
-     }
-     fetchProducts();
-  },[])
- 
+  const isDirty =
+    values.title !== task.title ||
+    values.description !== (task.description || "") ||
+    values.complete !== task.complete;
 
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
-
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!form.title.trim()) newErrors.title = "Title is required";
-    if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0)
-      newErrors.price = "Enter a valid price";
-    return newErrors;
+  const handleChange = (field: keyof Task, val: string | boolean) => {
+    const next = { ...values, [field]: val };
+    setValues(next);
+    if (touched[field]) setErrors(validate(next));
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (name === "image") setPreview(value);
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const handleStockChange = (delta: number) => {
-    setForm((prev) => ({ ...prev, stock: Math.max(0, prev.stock + delta) }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try{
-        setLoading(true);
-
-await api.put(`/product/${id}`,{...form , price:Number(form.price)})
-    setLoading(false);
-    setSaved(true);
-      navigate("/admin/product/list")
-    }catch(err){
-       console.error(err);
-       setLoading(false);
-    }
-  
+  const handleBlur = (field: keyof Task) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    setErrors(validate(values));
   };
 
   const handleReset = () => {
-    if (originalForm) {
-      setForm(originalForm);
-      setPreview(originalForm.image);
-      setErrors({});
-    }
+    setValues({
+      title: task.title,
+      description: task.description || "",
+      complete: task.complete,
+      id: task.id,
+    });
+    setErrors({});
+    setTouched({});
   };
- console.log(form);
-  const inputBase =
-    "w-full bg-white/[0.06] border  text-slate-600 text-sm rounded-xl px-4 py-3 placeholder-slate-600 transition-all duration-200 focus:outline-none focus:bg-white/[0.08]";
-  const inputFocus = (field: string) =>
-    focused === field
-      ? "border-violet-400 ring-2 ring-violet-500/20"
-      : errors[field]
-      ? "border-red-500/50 ring-2 ring-red-500/10"
-      : "border-white/10 hover:border-white/20";
 
-  // ── Loading skeleton ──────────────────────────────────────────────────────
-  if (fetching) {
-    return (
-      <>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap'); .ep-root * { font-family: 'Sora', sans-serif; } @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.8} } .skeleton { animation: pulse 1.5s ease-in-out infinite; background: rgba(255,255,255,0.07); border-radius: 12px; }`}</style>
-        <div className="ep-root min-h-screen  p-6 flex items-center justify-center">
-          <div className="w-full max-w-5xl space-y-5">
-            <div className="skeleton h-8 w-48" />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                {[1, 2, 3].map((i) => <div key={i} className="skeleton h-28" />)}
-              </div>
-              <div className="space-y-4">
-                {[1, 2].map((i) => <div key={i} className="skeleton h-44" />)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const handleSubmit = async() => {
+    setTouched({ title: true, description: true });
+    const errs = validate(values);
+    setErrors(errs);
+   
+  };
+
+  const titleLen = values.title.length;
+  const descLen = values.description?.length || 0;
 
   return (
-    <>
-     
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div className="w-full max-w-lg">
 
-      <div className="ep-root min-h-screen relative overflow-hidden">
+        {/* Card */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
 
-        {/* Background blobs */}
-        <div className="blob absolute top-0 right-0 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="blob2 absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none opacity-[0.025]" style={{ backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 fade-up">
-
-          {/* Top bar */}
-          <div className="flex items-center gap-3 mb-8">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-xl bg-white/[0.06] border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+          {/* Header */}
+          <div className="flex items-start justify-between mb-8">
             <div>
-              <h1 className="text-2xl font-semibold text-white tracking-tight">Edit Product</h1>
-              <p className="text-slate-500 text-xs mt-0.5">ID: {id || mockProduct._id}</p>
+              <span className="text-xs font-semibold tracking-widest text-indigo-500 uppercase">
+                Task Manager
+              </span>
+              <h1 className="mt-1 text-2xl font-bold text-gray-900">Edit Task</h1>
+              <p className="mt-1 text-sm text-gray-400">
+                Update the details and save your changes.
+              </p>
             </div>
+            <span className="text-xs text-gray-300 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1 font-mono mt-1">
+              #{task.id}
+            </span>
+          </div>
 
-            {/* Unsaved indicator */}
-            {isDirty && !saved && (
-              <span className="slide-down ml-auto inline-flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                Unsaved changes
-              </span>
-            )}
+          {/* Changed indicator */}
+          {isDirty && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-5 text-xs text-amber-600 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+              You have unsaved changes
+            </div>
+          )}
 
-            {/* Saved confirmation */}
-            {saved && (
-              <span className="slide-down ml-auto inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Saved successfully
+          {/* Title Field */}
+          <div className="mb-5">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Title <span className="text-red-400">*</span>
+              </label>
+              <span
+                className={`text-xs tabular-nums ${
+                  titleLen > 90
+                    ? titleLen > 100
+                      ? "text-red-500"
+                      : "text-amber-500"
+                    : "text-gray-300"
+                }`}
+              >
+                {titleLen}/100
               </span>
+            </div>
+            <input
+              type="text"
+              placeholder="e.g. Design new landing page"
+              value={values.title}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange("title", e.target.value)}
+              onBlur={() => handleBlur("title")}
+              maxLength={120}
+              className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
+                touched.title && errors.title
+                  ? "border-red-400 ring-2 ring-red-100"
+                  : values.title !== task.title
+                  ? "border-indigo-300 bg-indigo-50/30"
+                  : "border-gray-200"
+              }`}
+            />
+            {touched.title && errors.title && (
+              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                <span className="inline-block w-1 h-1 rounded-full bg-red-400" />
+                {errors.title}
+              </p>
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            {/* ── Left column ─────────────────────────────────────────────── */}
-            <div className="lg:col-span-2 flex flex-col gap-5">
-
-              {/* Title */}
-              <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                  Product Title <span className="text-red-400">*</span>
-                </label>
-                <input
-                  name="title"
-                  value={form.title}
-                  onChange={handleChange}
-                  onFocus={() => setFocused("title")}
-                  onBlur={() => setFocused("")}
-                  placeholder="e.g. Wireless Noise-Cancelling Headphones"
-                  className={`${inputBase} ${inputFocus("title")}`}
-                />
-                {errors.title && <p className="text-red-400 text-xs mt-1.5">{errors.title}</p>}
-              </div>
-
-              {/* Description */}
-              <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  onFocus={() => setFocused("description")}
-                  onBlur={() => setFocused("")}
-                  placeholder="Describe your product — features, materials, use cases..."
-                  rows={5}
-                  className={`${inputBase} ${inputFocus("description")}`}
-                />
-                <p className="text-right text-xs text-slate-600 mt-1">{form.description} chars</p>
-              </div>
-
-              {/* Price + Category */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                    Price (USD) <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
-                    <input
-                      name="price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.price}
-                      onChange={handleChange}
-                      onFocus={() => setFocused("price")}
-                      onBlur={() => setFocused("")}
-                      placeholder="0.00"
-                      className={`${inputBase} pl-7 ${inputFocus("price")}`}
-                    />
-                  </div>
-                  {errors.price && <p className="text-red-400 text-xs mt-1.5">{errors.price}</p>}
-                </div>
-
-                <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                    Category
-                  </label>
-                  <select
-                    name="category"
-                    value={form.category}
-                    onChange={handleChange}
-                    className={`${inputBase} ${inputFocus("category")} appearance-none cursor-pointer`}
-                  >
-                    <option value="" className="bg-slate-900">Select category</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c} className="bg-slate-900">{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Danger zone */}
-              <div className="bg-red-500/[0.04] border border-red-500/20 rounded-2xl p-6">
-                <h3 className="text-sm font-semibold text-red-400 mb-1">Danger Zone</h3>
-                <p className="text-xs text-slate-500 mb-4">Permanently delete this product. This action cannot be undone.</p>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/20 transition"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete Product
-                </button>
-              </div>
-            </div>
-
-            {/* ── Right column ────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-5">
-
-              {/* Image */}
-              <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                  Image URL
-                </label>
-                <input
-                  name="image"
-                  value={form.image}
-                  onChange={handleChange}
-                  onFocus={() => setFocused("image")}
-                  onBlur={() => setFocused("")}
-                  placeholder="https://..."
-                  className={`${inputBase} ${inputFocus("image")}`}
-                />
-
-                {/* Preview */}
-                <div className="mt-3 w-full h-44 rounded-xl overflow-hidden bg-white/[0.03] border border-white/[0.07] flex items-center justify-center relative group">
-                  {preview ? (
-                    <>
-                      <img
-                        src={preview}
-                        alt="preview"
-                        className="w-full h-full object-cover"
-                        onError={() => setPreview("")}
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                        <span className="text-xs text-white font-medium">Image Preview</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center">
-                      <svg className="w-8 h-8 text-slate-700 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-xs text-slate-600">No image</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Stock stepper */}
-              <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">
-                  Stock Quantity
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleStockChange(-1)}
-                    className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 text-slate-300 text-xl font-bold hover:bg-white/10 transition flex items-center justify-center"
-                  >
-                    −
-                  </button>
-                  <input
-                    name="stock"
-                    type="number"
-                    min="0"
-                    value={form.stock}
-                    onChange={(e) => setForm((p) => ({ ...p, stock: Math.max(0, Number(e.target.value)) }))}
-                    className="flex-1 text-center bg-white/[0.06] border border-white/10 rounded-xl py-2.5 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleStockChange(1)}
-                    className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-white text-xl font-bold hover:opacity-90 transition flex items-center justify-center"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Stock status pill */}
-                <div className="mt-3 flex justify-center">
-                  {form.stock === 0 ? (
-                    <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full">Out of Stock</span>
-                  ) : form.stock <= 10 ? (
-                    <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full">Low Stock</span>
-                  ) : (
-                    <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">In Stock</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <button
-                type="submit"
-                disabled={loading || !isDirty}
-                className="w-full bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          {/* Description Field */}
+          <div className="mb-5">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Description
+              </label>
+              <span
+                className={`text-xs tabular-nums ${
+                  descLen > 450
+                    ? descLen > 500
+                      ? "text-red-500"
+                      : "text-amber-500"
+                    : "text-gray-300"
+                }`}
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save Changes
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={!isDirty}
-                className="w-full bg-white/[0.04] border border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/[0.08] font-medium py-3 rounded-xl transition text-sm disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Discard Changes
-              </button>
+                {descLen}/500
+              </span>
             </div>
-          </form>
+            <textarea
+              rows={4}
+              placeholder="Add more details about this task..."
+              value={values.description}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleChange("description", e.target.value)}
+              onBlur={() => handleBlur("description")}
+              maxLength={520}
+              className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none resize-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
+                touched.description && errors.description
+                  ? "border-red-400 ring-2 ring-red-100"
+                  : values.description !== (task.description || "")
+                  ? "border-indigo-300 bg-indigo-50/30"
+                  : "border-gray-200"
+              }`}
+            />
+            {touched.description && errors.description && (
+              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                <span className="inline-block w-1 h-1 rounded-full bg-red-400" />
+                {errors.description}
+              </p>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-100 my-6" />
+
+          {/* Complete Toggle */}
+          <div
+            className={`flex items-center justify-between border rounded-xl px-4 py-3.5 mb-7 cursor-pointer transition select-none ${
+              values.complete !== task.complete
+                ? "bg-indigo-50/40 border-indigo-300"
+                : "bg-gray-50 border-gray-200 hover:border-indigo-300"
+            }`}
+            onClick={() => handleChange("complete", !values.complete)}
+          >
+            <div>
+              <p className="text-sm font-medium text-gray-700">Mark as complete</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {values.complete ? "This task is marked as done" : "This task is still in progress"}
+              </p>
+            </div>
+            <div
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                values.complete ? "bg-indigo-500" : "bg-gray-200"
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  values.complete ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleReset}
+              disabled={!isDirty}
+              className="flex-1 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 font-semibold text-sm rounded-xl py-3.5 transition-all duration-150"
+            >
+              Reset
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={saved || !isDirty}
+              className="flex-[2] bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl py-3.5 transition-all duration-150 shadow-sm hover:shadow-indigo-200 hover:shadow-md"
+            >
+              {saved ? "✓ Changes Saved!" : "Save Changes"}
+            </button>
+          </div>
+
+          {/* Success Message */}
+          {saved && (
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-600 text-center">
+              Task updated successfully!
+            </div>
+          )}
         </div>
-      </div>
-    </>
-  );
-};
 
-export default EditProduct;
+        {/* Footer hint */}
+        <p className="text-center text-xs text-gray-300 mt-4">
+          Fields marked with <span className="text-red-400">*</span> are required
+        </p>
+      </div>
+    </div>
+  );
+}

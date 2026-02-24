@@ -1,373 +1,477 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { useState } from "react";
 import { api } from "../api/axios";
-import { useNavigate } from "react-router";
 
-// ── Mock data matching the Product mongoose schema ──────────────────────────
-const mockProducts = [
-  { _id: "1", title: "Wireless Headphones Pro", description: "Noise-cancelling over-ear headphones", price: 129.99, category: "Electronics", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=80&h=80&fit=crop", stock: 42 },
-  { _id: "2", title: "Running Sneakers X1", description: "Lightweight performance running shoes", price: 89.5, category: "Sports", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop", stock: 0 },
-  { _id: "3", title: "Ceramic Coffee Mug", description: "Handcrafted 350ml ceramic mug", price: 18.0, category: "Home & Garden", image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=80&h=80&fit=crop", stock: 120 },
-  { _id: "4", title: "Slim Fit Chino Pants", description: "Cotton blend stretch chinos", price: 54.99, category: "Clothing", image: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=80&h=80&fit=crop", stock: 8 },
-  { _id: "5", title: "JavaScript: The Good Parts", description: "Essential JS programming book", price: 29.99, category: "Books", image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=80&h=80&fit=crop", stock: 35 },
-  { _id: "6", title: "Mechanical Keyboard TKL", description: "Tenkeyless RGB mechanical keyboard", price: 149.0, category: "Electronics", image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=80&h=80&fit=crop", stock: 15 },
-  { _id: "7", title: "Yoga Mat Premium", description: "6mm non-slip eco-friendly yoga mat", price: 39.0, category: "Sports", image: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=80&h=80&fit=crop", stock: 0 },
-  { _id: "8", title: "Vitamin C Serum", description: "Brightening 20% Vitamin C facial serum", price: 24.99, category: "Beauty", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=80&h=80&fit=crop", stock: 67 },
-];
-
-const CATEGORIES = ["All", "Electronics", "Sports", "Home & Garden", "Clothing", "Books", "Beauty", "Automotive", "Other"];
-
-
-interface Products{
-  _id:number,
-  title:string,
-  description:string,
-  price:number,
-  category:string,
-  image:string,
-  stock:number
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Task {
+  _id: string;
+  title: string;
+  description: string;
+  complete: boolean;
 }
 
-const StockBadge = ({ stock }: { stock: number }) => {
-  if (stock === 0)
-    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out of Stock</span>;
-  if (stock <= 10)
-    return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low · {stock}</span>;
-  return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">In Stock · {stock}</span>;
-};
+interface FormValues {
+  title: string;
+  description: string;
+  complete: boolean;
+}
 
-const ProductList = () => {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [sortBy, setSortBy] = useState<"title" | "price" | "stock">("title");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [products,setProducts]=useState<Products[]>([])
-  const PER_PAGE = 6;
+interface FormErrors {
+  title?: string;
+  description?: string;
+}
 
-  const navigate=useNavigate();
+type FilterType = "all" | "pending" | "done";
+type ModalMode = "create" | "edit";
 
-  // Filter + sort
-  const filtered = mockProducts
-    .filter((p) => {
-      const matchSearch =
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.category.toLowerCase().includes(search.toLowerCase());
-      const matchCat = category === "All" || p.category === category;
-      return matchSearch && matchCat;
-    })
-    .sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      if (sortBy === "price") return (a.price - b.price) * dir;
-      if (sortBy === "stock") return (a.stock - b.stock) * dir;
-      return a.title.localeCompare(b.title) * dir;
-    });
+interface ModalState {
+  mode: ModalMode;
+  task?: Task;
+}
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const toggleSort = (col: "title" | "price" | "stock") => {
-    if (sortBy === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortBy(col); setSortDir("asc"); }
-    setPage(1);
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+function validate(values: FormValues): FormErrors {
+  const errors: FormErrors = {};
+  const title = values.title.trim();
+  const desc = values.description.trim();
+  if (title.length === 0) errors.title = "Title is required";
+  else if (title.length < 3) errors.title = "Title must be at least 3 characters";
+  else if (title.length > 100) errors.title = "Title cannot exceed 100 characters";
+  if (desc.length > 500) errors.description = "Description cannot exceed 500 characters";
+  return errors;
+}
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const SearchIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.65z" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828A2 2 0 0110 16H8v-2a2 2 0 01.586-1.414z" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+interface ToggleProps {
+  checked: boolean;
+  onChange: () => void;
+}
+
+const Toggle = ({ checked, onChange }: ToggleProps) => (
+  <div
+    className={`flex items-center justify-between border rounded-xl px-4 py-3.5 cursor-pointer transition select-none ${
+      checked ? "bg-indigo-50/40 border-indigo-300" : "bg-gray-50 border-gray-200 hover:border-indigo-300"
+    }`}
+    onClick={onChange}
+  >
+    <div>
+      <p className="text-sm font-medium text-gray-700">Mark as complete</p>
+      <p className="text-xs text-gray-400 mt-0.5">{checked ? "Task is done" : "Task is in progress"}</p>
+    </div>
+    <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? "bg-indigo-500" : "bg-gray-200"}`}>
+      <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
+    </div>
+  </div>
+);
+
+// ─── Task Modal ───────────────────────────────────────────────────────────────
+interface TaskModalProps {
+  mode: ModalMode;
+  task?: Task;
+  onClose: () => void;
+  onSave: (values: FormValues) => void;
+}
+
+const TaskModal = ({ mode, task, onClose, onSave }: TaskModalProps) => {
+  const initial: FormValues = mode === "edit" && task
+    ? { title: task.title, description: task.description || "", complete: task.complete }
+    : { title: "", description: "", complete: false };
+
+  const [values, setValues] = useState<FormValues>(initial);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof FormValues, boolean>>>({});
+
+  const isDirty =
+    mode === "edit"
+      ? values.title !== initial.title || values.description !== initial.description || values.complete !== initial.complete
+      : true;
+
+  const handleChange = <K extends keyof FormValues>(field: K, val: FormValues[K]) => {
+    const next = { ...values, [field]: val };
+    setValues(next);
+    if (touched[field]) setErrors(validate(next));
   };
 
-  const toggleSelect = (id: string) =>
-    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const handleBlur = (field: keyof FormValues) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    setErrors(validate(values));
+  };
 
-  const toggleAll = () =>
-    setSelected(selected.length === paginated.length ? [] : paginated.map((p) => p._id));
+  const handleSubmit = () => {
+    setTouched({ title: true, description: true });
+    const errs = validate(values);
+    setErrors(errs);
+    if (Object.keys(errs).length === 0) {
+      onSave(values);
+      onClose();
+    }
+  };
 
-  const SortIcon = ({ col }: { col: string }) => (
-    <svg className={`w-3 h-3 ml-1 inline-block transition-transform ${sortBy === col && sortDir === "desc" ? "rotate-180" : ""} ${sortBy === col ? "text-violet-400" : "text-slate-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-    </svg>
+  const titleLen = values.title.length;
+  const descLen = values.description.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-8 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-300 hover:text-gray-500 transition text-2xl leading-none">&times;</button>
+
+        <div className="mb-7">
+          <span className="text-xs font-semibold tracking-widest text-indigo-500 uppercase">{mode === "edit" ? "Edit Task" : "New Task"}</span>
+          <h2 className="mt-1 text-xl font-bold text-gray-900">
+            {mode === "edit" ? `Editing #${task?.id}` : "Create a Task"}
+          </h2>
+        </div>
+
+        {mode === "edit" && isDirty && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-5 text-xs text-amber-600 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+            You have unsaved changes
+          </div>
+        )}
+
+        {/* Title */}
+        <div className="mb-5">
+          <div className="flex justify-between items-center mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Title <span className="text-red-400">*</span>
+            </label>
+            <span className={`text-xs tabular-nums ${titleLen > 90 ? (titleLen > 100 ? "text-red-500" : "text-amber-500") : "text-gray-300"}`}>
+              {titleLen}/100
+            </span>
+          </div>
+          <input
+            type="text"
+            placeholder="e.g. Fix login bug"
+            value={values.title}
+            onChange={(e) => handleChange("title", e.target.value)}
+            onBlur={() => handleBlur("title")}
+            maxLength={120}
+            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
+              touched.title && errors.title ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
+            }`}
+          />
+          {touched.title && errors.title && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <span className="inline-block w-1 h-1 rounded-full bg-red-400" />
+              {errors.title}
+            </p>
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="mb-5">
+          <div className="flex justify-between items-center mb-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Description</label>
+            <span className={`text-xs tabular-nums ${descLen > 450 ? (descLen > 500 ? "text-red-500" : "text-amber-500") : "text-gray-300"}`}>
+              {descLen}/500
+            </span>
+          </div>
+          <textarea
+            rows={3}
+            placeholder="Add more details..."
+            value={values.description}
+            onChange={(e) => handleChange("description", e.target.value)}
+            onBlur={() => handleBlur("description")}
+            maxLength={520}
+            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none resize-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
+              touched.description && errors.description ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
+            }`}
+          />
+          {touched.description && errors.description && (
+            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <span className="inline-block w-1 h-1 rounded-full bg-red-400" />
+              {errors.description}
+            </p>
+          )}
+        </div>
+
+        <div className="mb-7">
+          <Toggle checked={values.complete} onChange={() => handleChange("complete", !values.complete)} />
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-600 font-semibold text-sm rounded-xl py-3 transition">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={mode === "edit" && !isDirty}
+            className="flex-[2] bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl py-3 transition-all shadow-sm hover:shadow-indigo-200 hover:shadow-md"
+          >
+            {mode === "edit" ? "Save Changes" : "Create Task"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
-  const handleNavigate=(id:number)=>{
-          navigate(`/admin/product/edit/${id}`)
-  }
+};
 
-  const handleDelete=(e:number)=>{
+// ─── Delete Confirm ───────────────────────────────────────────────────────────
+interface DeleteConfirmProps {
+  task: Task;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+}
+
+const DeleteConfirm = ({ task, onClose, onConfirm }: DeleteConfirmProps) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm">
+    <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-200 p-7 text-center">
+      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl">🗑</div>
+      <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Task?</h3>
+      <p className="text-sm text-gray-400 mb-6">
+        "<span className="text-gray-600 font-medium">{task.title}</span>" will be permanently removed.
+      </p>
+      <div className="flex gap-3">
+        <button onClick={onClose} className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-600 font-semibold text-sm rounded-xl py-3 transition">Cancel</button>
+        <button onClick={() => { onConfirm(task._id); onClose(); }} className="flex-1 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-semibold text-sm rounded-xl py-3 transition-all">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Task Row ─────────────────────────────────────────────────────────────────
+interface TaskRowProps {
+  task: Task;
+  onToggle: (id: string) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
+}
+
+const TaskRow = ({ task, onToggle, onEdit, onDelete }: TaskRowProps) => (
+  <div className={`group flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 ${
+    task.complete ? "bg-gray-50 border-gray-100" : "bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm"
+  }`}>
+    <button
+      onClick={() => onToggle(task.id)}
+      className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+        task.complete ? "bg-indigo-500 border-indigo-500 text-white" : "border-gray-300 hover:border-indigo-400"
+      }`}
+    >
+      {task.complete && <CheckIcon />}
+    </button>
+
+    <div className="flex-1 min-w-0">
+      <p className={`text-sm font-semibold truncate ${task.complete ? "line-through text-gray-400" : "text-gray-800"}`}>
+        {task.title}
+      </p>
+      {task.description ? (
+        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>
+      ) : (
+        <p className="text-xs text-gray-300 mt-0.5 italic">No description</p>
+      )}
+    </div>
+
+    <span className={`flex-shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${
+      task.complete ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+    }`}>
+      {task.complete ? "Done" : "Pending"}
+    </span>
+
+    <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition" title="Edit">
+        <EditIcon />
+      </button>
+      <button onClick={() => onDelete(task)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition" title="Delete">
+        <TrashIcon />
+      </button>
+    </div>
+  </div>
+);
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function TaskListPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [search, setSearch] = useState<string>("");
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null | string>(null);
+
+  const total = tasks.length;
+  const doneCount = tasks.filter((t) => t.complete).length;
+  const pendingCount = total - doneCount;
+  const progress = total === 0 ? 0 : Math.round((doneCount / total) * 100);
+
+  const filtered = tasks.filter((t) => {
+    const matchSearch =
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
+      t.description.toLowerCase().includes(search.toLowerCase());
+    const matchFilter =
+      filter === "all" ||
+      (filter === "done" && t.complete) ||
+      (filter === "pending" && !t.complete);
+    return matchSearch && matchFilter;
+  });
+
+  const handleToggle = (id: string) =>
+    setTasks((ts) => ts.map((t) => (t._id === id ? { ...t, complete: !t.complete } : t)));
+
+  const handleSave = (values: FormValues) => {
+    if (modal?.mode === "edit" && modal.task) {
+      setTasks((ts) => ts.map((t) => (t._id === modal.task!._id ? { ...t, ...values } : t)));
+    } else {
+      const newTask: Task = { _id: `task-${Date.now()}`, ...values };
+      setTasks((ts) => [newTask, ...ts]);
+    }
+  };
+
+  const handleDelete = async(id: string) =>{
     try{
+      const deletetask=await api.delete(`/v1/task/:${id}`);
+      alert("delete task");
 
     }catch(err){
-      
+console.error(err);
     }
   }
+
+  const stats: { label: string; value: number; color: string; bg: string }[] = [
+    { label: "Total", value: total, color: "text-gray-800", bg: "bg-gray-50 border-gray-200" },
+    { label: "Pending", value: pendingCount, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
+    { label: "Completed", value: doneCount, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
+  ];
+
   useEffect(()=>{
-   const fetchProducts=async()=>{
-     try{
-       const respnse=await api.get("/product/get");
-      setProducts(respnse.data);
-    }catch(err){
-        console.error(err);
+    const fetchtask=async()=>{
+       const res= await api.get("/v1/task/get");
+       setTasks(res.data);
     }
-   }
-   fetchProducts();
+    fetchtask();
   },[])
 
   return (
-    <>
-     
+    <div className="min-h-screen bg-white">
+      <div className="max-w-2xl mx-auto px-4 py-12">
 
-      <div className="pl-root min-h-screen  p-6 relative overflow-hidden">
-
-        {/* Background blobs */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none opacity-[0.025]" style={{ backgroundImage: "linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
-
-        <div className="relative z-10 max-w-7xl mx-auto fade-up">
-
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl font-semibold text-white tracking-tight">Products</h1>
-              <p className="text-slate-400 text-sm mt-0.5">{products.length} products found</p>
-            </div>
-            <button className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg shadow-violet-500/20 transition-all active:scale-95">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Product
-            </button>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
-            {/* Search */}
-            <div className="relative flex-1">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition"
-              />
-            </div>
-
-            {/* Category filter */}
-            <select
-              value={category}
-              onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-              className="bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition appearance-none cursor-pointer min-w-[160px]"
-            >
-              {CATEGORIES.map((c) => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-            </select>
-          </div>
-
-          {/* Bulk action bar */}
-          {selected.length > 0 && (
-            <div className="mb-4 flex items-center gap-3 bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-2.5">
-              <span className="text-sm text-violet-300 font-medium">{selected.length} selected</span>
-              <div className="flex-1" />
-              <button className="text-xs text-red-400 hover:text-red-300 font-medium transition flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete selected
-              </button>
-              <button onClick={() => setSelected([])} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
-            </div>
-          )}
-
-          {/* Table card */}
-          <div className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-black/30">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/[0.07]">
-                    <th className="px-5 py-4 text-left w-10">
-                      <input
-                        type="checkbox"
-                        checked={selected.length === paginated.length && paginated.length > 0}
-                        onChange={toggleAll}
-                        className="w-3.5 h-3.5 accent-violet-500 cursor-pointer"
-                      />
-                    </th>
-                    <th className="px-5 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-widest">Product</th>
-                    <th
-                      className="px-5 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-widest cursor-pointer select-none hover:text-slate-300 transition"
-                      onClick={() => toggleSort("title")}
-                    >
-                      Title <SortIcon col="title" />
-                    </th>
-                    <th className="px-5 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-widest">Category</th>
-                    <th
-                      className="px-5 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-widest cursor-pointer select-none hover:text-slate-300 transition"
-                      onClick={() => toggleSort("price")}
-                    >
-                      Price <SortIcon col="price" />
-                    </th>
-                    <th
-                      className="px-5 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-widest cursor-pointer select-none hover:text-slate-300 transition"
-                      onClick={() => toggleSort("stock")}
-                    >
-                      Stock <SortIcon col="stock" />
-                    </th>
-                    <th className="px-5 py-4 text-right text-xs font-semibold text-slate-400 uppercase tracking-widest">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {false ? (
-                    <tr>
-                      <td colSpan={7} className="px-5 py-16 text-center">
-                        <svg className="w-10 h-10 text-slate-700 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z" />
-                        </svg>
-                        <p className="text-slate-500 text-sm">No products found</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    products.map((product) => (
-                      <tr key={product._id} className="row-hover">
-                        {/* Checkbox */}
-                        <td className="px-5 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(String(product._id))}
-                            onChange={() => toggleSelect(String(product._id))}
-                            className="w-3.5 h-3.5 accent-violet-500 cursor-pointer"
-                          />
-                        </td>
-                      
-
-                        {/* Image */}
-                        <td className="px-5 py-4">
-                          <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
-                           {product.image ? <img
-                              src={product.image}
-                              alt={product.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23334155'/%3E%3C/svg%3E";
-                              }}
-                            />:<img src="https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png" className="w-full h-full object-cover"/>}
-                          </div>
-                        </td>
-
-                        {/* Title + description */}
-                        <td className="px-5 py-4 max-w-[220px]">
-                          <p className="text-slate-200 font-medium truncate">{product.title}</p>
-                          <p className="text-slate-500 text-xs truncate mt-0.5">{product.description}</p>
-                        </td>
-
-                        {/* Category */}
-                        <td className="px-5 py-4">
-                          <span className="inline-block px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400">
-                            {product.category}
-                          </span>
-                        </td>
-
-                        {/* Price */}
-                        <td className="px-5 py-4">
-                          <span className="text-slate-200 font-semibold">${product.price.toFixed(2)}</span>
-                        </td>
-
-                        {/* Stock */}
-                        <td className="px-5 py-4">
-                          <StockBadge stock={product.stock} />
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center justify-end gap-1">
-                          
-                            {/* Edit */}
-                            <button className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition" onClick={()=>handleNavigate( product._id )}>
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            {/* Delete */}
-                            <button className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition" onClick={()=>handleDelete(product._id)}>
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.07]">
-                <p className="text-xs text-slate-500">
-                  Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setPage(n)}
-                      className={`w-8 h-8 rounded-lg text-xs font-medium transition ${
-                        page === n
-                          ? "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-lg shadow-violet-500/25"
-                          : "text-slate-400 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      {n} 
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Stats footer */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            {[
-              { label: "Total Products", value: mockProducts.length, icon: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z" },
-              { label: "Out of Stock", value: mockProducts.filter((p) => p.stock === 0).length, icon: "M12 9v2m0 4h.01M12 5a7 7 0 100 14A7 7 0 0012 5z" },
-              { label: "Low Stock", value: mockProducts.filter((p) => p.stock > 0 && p.stock <= 10).length, icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-            ].map(({ label, value, icon }) => (
-              <div key={label} className="bg-white/[0.04] border border-white/10 rounded-2xl px-5 py-4 flex items-center gap-3">
-                <div className="w-9 h-9 bg-violet-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xl font-semibold text-white">{value}</p>
-                  <p className="text-xs text-slate-500">{label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
+        {/* Header */}
+        <div className="mb-8">
+          <span className="text-xs font-semibold tracking-widest text-indigo-500 uppercase">Task Manager</span>
+          <h1 className="mt-1 text-3xl font-bold text-gray-900">My Tasks</h1>
+          <p className="mt-1 text-sm text-gray-400">Manage and track your work in one place.</p>
         </div>
-      </div>
-    </>
-  );
-};
 
-export default ProductList;
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {stats.map((s) => (
+            <div key={s.label} className={`${s.bg} border rounded-xl px-4 py-3 text-center`}>
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Progress */}
+        <div className="mb-6">
+          <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+            <span>Overall progress</span>
+            <span className="font-semibold text-indigo-500">{progress}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex gap-2 mb-4">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"><SearchIcon /></span>
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 placeholder-gray-300 text-gray-700"
+            />
+          </div>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as FilterType)}
+            className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-white"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="done">Done</option>
+          </select>
+          <button
+            onClick={() => setModal({ mode: "create" })}
+            className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold text-sm rounded-xl px-4 py-2.5 transition-all shadow-sm hover:shadow-indigo-200 hover:shadow-md whitespace-nowrap"
+          >
+            + New Task
+          </button>
+        </div>
+
+        {/* Task List */}
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 text-gray-300">
+              <div className="text-4xl mb-3">📭</div>
+              <p className="text-sm font-medium">No tasks found</p>
+              <p className="text-xs mt-1">Try adjusting your search or filter</p>
+            </div>
+          ) : (
+            filtered.map((task) => (
+              <TaskRow
+                key={task._id}
+                task={task}
+                onToggle={handleToggle}
+                onEdit={(t) => setModal({ mode: "edit", task: t })}
+                onDelete={() => setDeleteTarget(task._id)}
+              />
+            ))
+          )}
+        </div>
+
+        {filtered.length > 0 && (
+          <p className="text-xs text-gray-300 text-center mt-6">
+            Showing {filtered.length} of {total} tasks
+          </p>
+        )}
+      </div>
+
+      {/* Modals */}
+      {modal && (
+        <TaskModal
+          mode={modal.mode}
+          task={modal.task}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirm
+          task={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+        />
+      )}
+    </div>
+  );
+}
