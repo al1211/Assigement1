@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useState } from "react";
 import { api } from "../api/axios";
+import { useNavigate } from "react-router"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Task {
@@ -76,9 +77,8 @@ interface ToggleProps {
 
 const Toggle = ({ checked, onChange }: ToggleProps) => (
   <div
-    className={`flex items-center justify-between border rounded-xl px-4 py-3.5 cursor-pointer transition select-none ${
-      checked ? "bg-indigo-50/40 border-indigo-300" : "bg-gray-50 border-gray-200 hover:border-indigo-300"
-    }`}
+    className={`flex items-center justify-between border rounded-xl px-4 py-3.5 cursor-pointer transition select-none ${checked ? "bg-indigo-50/40 border-indigo-300" : "bg-gray-50 border-gray-200 hover:border-indigo-300"
+      }`}
     onClick={onChange}
   >
     <div>
@@ -173,9 +173,8 @@ const TaskModal = ({ mode, task, onClose, onSave }: TaskModalProps) => {
             onChange={(e) => handleChange("title", e.target.value)}
             onBlur={() => handleBlur("title")}
             maxLength={120}
-            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
-              touched.title && errors.title ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
-            }`}
+            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${touched.title && errors.title ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
+              }`}
           />
           {touched.title && errors.title && (
             <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
@@ -200,9 +199,8 @@ const TaskModal = ({ mode, task, onClose, onSave }: TaskModalProps) => {
             onChange={(e) => handleChange("description", e.target.value)}
             onBlur={() => handleBlur("description")}
             maxLength={520}
-            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none resize-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${
-              touched.description && errors.description ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
-            }`}
+            className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none resize-none transition focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 ${touched.description && errors.description ? "border-red-400 ring-2 ring-red-100" : "border-gray-200"
+              }`}
           />
           {touched.description && errors.description && (
             <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
@@ -266,15 +264,15 @@ interface TaskRowProps {
   onDelete: (task: Task) => void;
 }
 
-const TaskRow = ({ task, onToggle, onEdit, onDelete }: TaskRowProps) => (
-  <div className={`group flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 ${
-    task.complete ? "bg-gray-50 border-gray-100" : "bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm"
-  }`}>
+const TaskRow = ({ task, onToggle,  onDelete }: TaskRowProps) => {
+  const navigate=useNavigate();
+
+return (  <div className={`group flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 ${task.complete ? "bg-gray-50 border-gray-100" : "bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm"
+    }`}>
     <button
-      onClick={() => onToggle(task.id)}
-      className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-        task.complete ? "bg-indigo-500 border-indigo-500 text-white" : "border-gray-300 hover:border-indigo-400"
-      }`}
+      onClick={() => onToggle(task._id)}
+      className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${task.complete ? "bg-indigo-500 border-indigo-500 text-white" : "border-gray-300 hover:border-indigo-400"
+        }`}
     >
       {task.complete && <CheckIcon />}
     </button>
@@ -290,22 +288,21 @@ const TaskRow = ({ task, onToggle, onEdit, onDelete }: TaskRowProps) => (
       )}
     </div>
 
-    <span className={`flex-shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${
-      task.complete ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
-    }`}>
+    <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${task.complete ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+      }`}>
       {task.complete ? "Done" : "Pending"}
     </span>
 
-    <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition" title="Edit">
-        <EditIcon />
+    <div className="shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button onClick={() =>navigate(`/admin/product/edit/${task._id}`) } className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition" title="Edit">
+        <EditIcon/>
       </button>
       <button onClick={() => onDelete(task)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition" title="Delete">
         <TrashIcon />
       </button>
     </div>
   </div>
-);
+)};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TaskListPage() {
@@ -314,6 +311,7 @@ export default function TaskListPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [modal, setModal] = useState<ModalState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Task | null | string>(null);
+  const navigate = useNavigate();
 
   const total = tasks.length;
   const doneCount = tasks.filter((t) => t.complete).length;
@@ -333,6 +331,7 @@ export default function TaskListPage() {
 
   const handleToggle = (id: string) =>
     setTasks((ts) => ts.map((t) => (t._id === id ? { ...t, complete: !t.complete } : t)));
+  // navigate("/admin/product/edit/123");
 
   const handleSave = (values: FormValues) => {
     if (modal?.mode === "edit" && modal.task) {
@@ -343,13 +342,13 @@ export default function TaskListPage() {
     }
   };
 
-  const handleDelete = async(id: string) =>{
-    try{
-      const deletetask=await api.delete(`/v1/task/:${id}`);
+  const handleDelete = async () => {
+    try {
+      const deletetask = await api.delete(`/v1/task/${deleteTarget}`);
       alert("delete task");
 
-    }catch(err){
-console.error(err);
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -359,13 +358,13 @@ console.error(err);
     { label: "Completed", value: doneCount, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
   ];
 
-  useEffect(()=>{
-    const fetchtask=async()=>{
-       const res= await api.get("/v1/task/get");
-       setTasks(res.data);
+  useEffect(() => {
+    const fetchtask = async () => {
+      const res = await api.get("/v1/task/get");
+      setTasks(res.data);
     }
     fetchtask();
-  },[])
+  }, [deleteTarget])
 
   return (
     <div className="min-h-screen bg-white">
@@ -421,7 +420,7 @@ console.error(err);
             <option value="done">Done</option>
           </select>
           <button
-            onClick={() => setModal({ mode: "create" })}
+            onClick={() => navigate("/admin/products")}
             className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold text-sm rounded-xl px-4 py-2.5 transition-all shadow-sm hover:shadow-indigo-200 hover:shadow-md whitespace-nowrap"
           >
             + New Task
@@ -456,15 +455,7 @@ console.error(err);
         )}
       </div>
 
-      {/* Modals */}
-      {modal && (
-        <TaskModal
-          mode={modal.mode}
-          task={modal.task}
-          onClose={() => setModal(null)}
-          onSave={handleSave}
-        />
-      )}
+    
       {deleteTarget && (
         <DeleteConfirm
           task={deleteTarget}

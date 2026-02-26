@@ -2,6 +2,7 @@ import React from "react";
 import  type {  ChangeEvent, FocusEvent } from "react";
 import { useState } from "react";
 import { api } from "../api/axios";
+import { useNavigate } from "react-router";
 
 // Types
 interface TaskValues {
@@ -48,6 +49,8 @@ export default function AddProduct() {
     if (touched[field]) setErrors(validate(next));
   };
 
+  const navigate =useNavigate();
+
   // Handle blur for validation
   const handleBlur = (field: keyof TaskValues) => {
     setTouched((t) => ({ ...t, [field]: true }));
@@ -61,6 +64,9 @@ export default function AddProduct() {
   const response = await api.post("/v1/task/create",values)
   if(response ){
     alert("task create succesfull");
+    setTimeout(() => {
+      navigate("/admin/product/list")
+    }, 500);
   }
   const err = "something";
   setErrors(err);
