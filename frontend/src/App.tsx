@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 // import Home from "../pages/Home"
 import Login from "../pages/Login"
 import ProductDetails from "../pages/ProductDetails"
@@ -10,11 +10,12 @@ import PublicRoute from "../components/PublicRoute"
 import ProtectedRoute from "../components/ProtectedRoute"
 
 const router = createBrowserRouter([
-  { path: "/", element:
-    <PublicRoute>
+  {
+    path: "/", element:
+      <PublicRoute>
 
-    <Signup /> 
-    </PublicRoute>
+        <Signup />
+      </PublicRoute>
   },
   {
     path: "/login", element:
@@ -30,7 +31,7 @@ const router = createBrowserRouter([
         <Signup />
       </PublicRoute>
   },
-  { path: "/products", element: <ProductDetails /> },
+  { path: "/task", element: <ProductDetails /> },
 
 
 

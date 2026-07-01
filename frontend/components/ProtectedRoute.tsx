@@ -1,10 +1,10 @@
 import React from "react";
 import {Navigate} from "react-router-dom"
-import { getToken } from "../utils/auth"
+
 
 
 const protectedRoute=({children}:any)=>{
-    const token=getToken();
+    const token=localStorage.getItem("token")
     if(!token){
         return <Navigate to="signup"/>
     }

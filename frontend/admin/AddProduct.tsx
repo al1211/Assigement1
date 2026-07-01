@@ -62,7 +62,7 @@ export default function AddProduct() {
     try{
 
   const response = await api.post("/v1/task/create",values)
-  if(response ){
+  if(response){
     alert("task create succesfull");
     setTimeout(() => {
       navigate("/admin/product/list")
