@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 import type  {  ChangeEvent } from "react";
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { api } from "../api/axios";
 
 // Task type
 interface Task {
-  id: string;
+  id: string | undefined;
   title: string;
   description?: string;
   complete: boolean;
@@ -52,11 +54,30 @@ export default function EditTaskForm({
   onSave,
   onCancel,
 }: EditTaskFormProps) {
+  const {id}=useParams();
+  const navigate=useNavigate();
+
+  const token=localStorage.getItem("token")
+  const handleUpdate=async()=>{
+
+    try{
+      const res=await api.put(`/v1/task/${id}`,values,{headers:{
+        Authorization:`Bearer ${token}`
+      }});
+      setSaved(true);
+       navigate("/admin/product/list")
+      
+    }catch(err){
+      console.log(err);
+    }
+  }
+ 
+ 
   const [values, setValues] = useState<Task>({
-    title: task.title,
-    description: task.description || "",
+    title: "",
+    description: "",
     complete: task.complete,
-    id: task.id,
+    id: id,
   });
 
   const [errors, setErrors] = useState<TaskErrors>({});
@@ -81,22 +102,16 @@ export default function EditTaskForm({
 
   const handleReset = () => {
     setValues({
-      title: task.title,
-      description: task.description || "",
-      complete: task.complete,
-      id: task.id,
+      title: "",
+      description:"",
+      complete:false,
+      id:id
     });
     setErrors({});
     setTouched({});
   };
 
-  const handleSubmit = async() => {
-    setTouched({ title: true, description: true });
-    const errs = validate(values);
-    setErrors(errs);
-   
-  };
-
+  
   const titleLen = values.title.length;
   const descLen = values.description?.length || 0;
 
@@ -255,9 +270,9 @@ export default function EditTaskForm({
             </button>
 
             <button
-              onClick={handleSubmit}
+              onClick={handleUpdate}
               disabled={saved || !isDirty}
-              className="flex-[2] bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl py-3.5 transition-all duration-150 shadow-sm hover:shadow-indigo-200 hover:shadow-md"
+              className="flex-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl py-3.5 transition-all duration-150 shadow-sm hover:shadow-indigo-200 hover:shadow-md"
             >
               {saved ? "✓ Changes Saved!" : "Save Changes"}
             </button>

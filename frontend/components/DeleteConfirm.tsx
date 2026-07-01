@@ -1,8 +1,10 @@
-import { Task } from "../admin/ProductList";
+import React from "react";
+import type { Task } from "../admin/ProductList";
+
 
 // ─── Delete Confirm ───────────────────────────────────────────────────────────
 interface DeleteConfirmProps {
-  task: Task;
+  task: Task  ;
   onClose: () => void;
   onConfirm: (id: string) => void;
 }

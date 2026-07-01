@@ -58,10 +58,15 @@ export default function AddProduct() {
   };
 
   // Handle form submission
+  const token=localStorage.getItem("token")
   const handleSubmit = async() => {
     try{
 
-  const response = await api.post("/v1/task/create",values)
+  const response = await api.post("/v1/task/create",values,{
+    headers:{
+      Authorization:`Bearer ${token}`
+    }
+  });
   if(response){
     alert("task create succesfull");
     setTimeout(() => {

@@ -3,7 +3,7 @@ import type { Task } from "../admin/ProductList";
 import React from "react";
 
 interface TaskRowProps {
-  task: Task;
+  task: Task ;
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;

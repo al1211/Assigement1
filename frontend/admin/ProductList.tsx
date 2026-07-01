@@ -12,10 +12,7 @@ export interface Task {
   description: string;
   complete: boolean;
 }
-interface FormErrors {
-  title?: string;
-  description?: string;
-}
+
 type FilterType = "all" | "pending" | "done";
 type ModalMode = "create" | "edit";
 
@@ -67,9 +64,12 @@ export default function TaskListPage() {
 
   const handleDelete = async () => {
     try {
-      const deletetask = await api.delete(`/v1/task/${deleteTarget}`);
-      alert("delete task");
-
+      const deletetask = await api.delete(`/v1/task/${deleteTarget}`,{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      });
+      
     } catch (err) {
       console.error(err);
     }
@@ -80,14 +80,19 @@ export default function TaskListPage() {
     { label: "Pending", value: pendingCount, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
     { label: "Completed", value: doneCount, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
   ];
+  const token=localStorage.getItem("token");
 
   useEffect(() => {
     const fetchtask = async () => {
-      const res = await api.get("/v1/task/get");
+      const res = await api.get("/v1/task/get",{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      });
       setTasks(res.data);
     }
     fetchtask();
-  }, [deleteTarget])
+  }, [])
 
   return (
     <div className="min-h-screen bg-white">
