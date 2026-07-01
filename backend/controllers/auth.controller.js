@@ -9,7 +9,7 @@ import jwtsecret from "../config/var.js"
  // Singup User
  const SingupUser=async(req,res)=>{
     try{
-        console.log(req.body)
+       
         const {name,email,password,role}=req.body;
 
 
@@ -33,12 +33,12 @@ import jwtsecret from "../config/var.js"
             role,
             
         });
-        res.status(201).json({message:"User registered succesfully"});
+      return  res.status(201).json({message:"User registered succesfully"});
 
 
 
     }catch(err){
-        res.status(500).json("Internal Server Error",err)
+      return  res.status(500).json("Internal Server Error",err)
 
     }
 }
