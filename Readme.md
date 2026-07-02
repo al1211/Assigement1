@@ -26,7 +26,6 @@ Unauthorized users are restricted from accessing protected routes.
 - Create Task
 - Update Task
 - Delete Task
-- Logout Functionality
 - Secure API endpoints
 
 ---
@@ -147,4 +146,4 @@ This project is open-source and available under the MIT License.
 ## 👨‍💻 Author
 
 Your Name  
-GitHub: https://github.com/your-username
+GitHub: https://github.com/al1211
